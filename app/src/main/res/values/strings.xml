@@ -1,0 +1,68 @@
+<resources>
+    <string name="app_name">GeoTag</string>
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+    <string name="title_activity_posizioni">Lista Posizioni</string>
+    <string name="title_activity_modifica_percorso">Modifica percorso</string>
+
+    <!--STRINGHE MENU -->
+
+    <string name="posizioni_activity">Lista posizioni</string>
+    <string name="show_posizioni">Mostra posizioni</string>
+    <string name="percorso_attivo_drawer_actions">Percorso attivo</string>
+
+    <string name="percorsi_actions">Opzioni percorsi</string>
+
+    <!--STRINGHE ACTIONS -->
+    <string name="fatto">FATTO</string>
+    <string name="annulla">ANNULLA</string>
+    <string name="salva">SALVA</string>
+    <string name="modifica">Modifica</string>
+    <string name="elimina">Elimina</string>
+    <string name="modifica_percorso">Modifica percorso</string>
+    <string name="nuovo_percorso">Nuovo percorso</string>
+    <string name="modifica_posizione">Modifica Posizione</string>
+    <string name="nuova_posizione">Nuova posizione</string>
+    <string name="rimuovi_marker">Rimuovi segnaposto</string>
+    <string name="select_percorso">Seleziona percorso</string>
+    <string name="settings">Impostazioni</string>
+
+
+    <!-- MESSAGES-->
+    <string name="work_in_progress">Work_in_progress</string>
+    <string name="percorso_eliminato">Percorso eliminato</string>
+    <string name="percorso_non_eliminato">Percorso non eliminato</string>
+    <string name="percorso_modificato">Percorso modificato</string>
+    <string name="percorso_non_modificato">Percorso non modificato</string>
+    <string name="percorso_aggiunto">Percorso aggiunto</string>
+    <string name="percorso_non_aggiunto">Percorso non aggiunto</string>
+    <string name="posizione_memorizzata">Posizione memorizzata</string>
+    <string name="posizione_non_memorizzata">Posizione non memorizzata</string>
+    <string name="posizione_modificata">Posizone modificata</string>
+    <string name="posizione_non_modificata">Posizione non modificata</string>
+    <string name="posizione_eliminata">Posizione eliminata</string>
+    <string name="posizione_non_eliminata">Posizione non eliminata</string>
+    <string name="file_salvato">File salvato in </string>
+    <string name="permesso_memoria_negato">Permesso di accedere alla memoria negato, l\'app non sarà in grado di esportare il percorso</string>
+
+
+    <!-- ERRORS -->
+    <string name="warning_no_percorso_attivo">Nessun percorso selezionato: selezionare un percorso prima di procedere</string>
+    <string name="error_insert_nome">Inserire nome percorso</string>
+    <string name="error_insert_etichetta">Inserire etichetta posizione</string>
+    <string name="memoria_non_disponibile">Memoria al momento non disponibile</string>
+
+    <!-- INPUT -->
+    <string name="percorso_nome">Nome percorso</string>
+    <string name="percorso_categoria">Commessa</string>
+    <string name="percorso_autista">Autista</string>
+    <string name="percorso_mezzo">Mezzo</string>
+    <string name="percorso_note">Note</string>
+    <string name="title_activity_modifica_posizione">ModificaPosizioneActivity</string>
+    <string name="posizione_coordinate">Coordinate</string>
+    <string name="posizione_etichetta">Etichetta</string>
+    <string name="posizione_indirizzo">Indirizzo</string>
+    <string name="posizione_orario">Orario</string>
+    <string name="posizione_utente">Utente</string>
+    <string name="posizione_numero">Numero</string>
+</resources>

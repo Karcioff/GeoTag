@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/cnt_mnu_modifica"
+        android:title="Modifica" />
+
+    <item
+        android:id="@+id/cnt_mnu_esporta"
+        android:title="Esporta" />
+
+    <item
+        android:id="@+id/cnt_mnu_sing"
+        android:title="Everibody sing a song" />
+</menu>
+

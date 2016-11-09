@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item android:title="@string/percorso_attivo_drawer_actions">
+        <menu>
+            <item
+                android:id="@+id/open_posizioni_activity"
+                android:icon="@drawable/ic_location_on"
+                android:title="@string/posizioni_activity" />
+            <item
+                android:id="@+id/remove_marker"
+                android:icon="@drawable/ic_location_off"
+                android:title="@string/rimuovi_marker" />
+
+            <item
+                android:id="@+id/show_posizioni"
+                android:icon="@drawable/ic_visibility_black_24dp"
+                android:title="@string/show_posizioni" />
+
+        </menu>
+    </item>
+
+    <item android:title="@string/percorsi_actions">
+        <menu>
+            <item
+                android:id="@+id/select_pecorso"
+                android:icon="@drawable/ic_center_focus_weak_black_24dp"
+                android:title="@string/select_percorso" />
+            <item
+                android:id="@+id/new_percorso"
+                android:icon="@drawable/ic_directions_bus_black_24dp"
+                android:title="@string/nuovo_percorso" />
+        </menu>
+    </item>
+
+    <group android:id="@+id/various">
+        <item
+            android:id="@+id/settings"
+            android:icon="@drawable/ic_settings_black_24dp"
+            android:title="@string/settings" />
+    </group>
+</menu>

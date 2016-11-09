@@ -1,0 +1,19 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context="com.heroessoftware.geotag.Activities.PosizioniActivity">
+    <item
+        android:id="@+id/action_settings"
+        android:orderInCategory="100"
+        android:title="@string/settings"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_modifica"
+        android:title="@string/modifica"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_elimina"
+        android:title="@string/elimina"
+        app:showAsAction="never"/>
+
+</menu>
