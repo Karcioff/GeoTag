@@ -62,7 +62,7 @@ public class ModificaPosizioneActivity extends AppCompatActivity implements Time
             if (!posizione.getOrario().equalsIgnoreCase("")) {
                 orarioText.setVisibility(View.VISIBLE);
                 orarioText.setText(posizione.getOrario());
-                orarioActive.setChecked(false);
+                orarioActive.setChecked(true);
             }
             // TODO: 30/10/2016 aggiungere gli altri
         } else {
