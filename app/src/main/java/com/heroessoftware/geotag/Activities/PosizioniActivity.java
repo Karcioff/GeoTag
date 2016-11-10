@@ -3,7 +3,7 @@ package com.heroessoftware.geotag.Activities;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.os.Build;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.design.widget.CoordinatorLayout;
 import android.support.design.widget.FloatingActionButton;
@@ -24,6 +24,7 @@ import android.widget.Toast;
 import com.heroessoftware.geotag.Gestori.AdapterPosizione;
 import com.heroessoftware.geotag.Gestori.GestoreDatabase;
 import com.heroessoftware.geotag.Gestori.ProcessoEsportazione;
+import com.heroessoftware.geotag.Gestori.Utils;
 import com.heroessoftware.geotag.Percorso;
 import com.heroessoftware.geotag.Posizione;
 import com.heroessoftware.geotag.R;
@@ -31,7 +32,6 @@ import com.heroessoftware.geotag.R;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.List;
 
 public class PosizioniActivity extends AppCompatActivity {
 
@@ -40,14 +40,14 @@ public class PosizioniActivity extends AppCompatActivity {
     private TextView categoria, autista, mezzo, note;
     private AdapterPosizione adapter;
     private GestoreDatabase database = new GestoreDatabase(this);
-    private boolean isModified = false;
+    private boolean isOrderModified = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+        /*if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
             getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
-        }
+        }*/ // TODO: 10/11/2016 serve ???????????????
         setContentView(R.layout.activity_posizioni);
 
         percorsoAttivo = getIntent().getExtras().getParcelable(MainActivity.KEY_PERCORSO);
@@ -56,6 +56,7 @@ public class PosizioniActivity extends AppCompatActivity {
         autista = (TextView) findViewById(R.id.autista);
         mezzo = (TextView) findViewById(R.id.mezzo);
         note = (TextView) findViewById(R.id.note);
+
         //TOOLBAR
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -79,7 +80,7 @@ public class PosizioniActivity extends AppCompatActivity {
             @Override
             public void clearView(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder) {
                 super.clearView(recyclerView, viewHolder);
-                adapter.notifyDataSetChanged();
+                refreshVisualOrder();
             }
 
             @Override
@@ -87,7 +88,7 @@ public class PosizioniActivity extends AppCompatActivity {
                 final int fromPos = viewHolder.getAdapterPosition();
                 final int toPos = target.getAdapterPosition();
                 adapter.move(fromPos, toPos);
-                isModified = true;
+                isOrderModified = true;
                 return true;
             }
 
@@ -98,7 +99,7 @@ public class PosizioniActivity extends AppCompatActivity {
                 adapter.remove(viewHolder.getAdapterPosition());
                 CoordinatorLayout coordinatorLayout = (CoordinatorLayout) findViewById(R.id.coordinator);
                 Snackbar snackbar = Snackbar
-                        .make(coordinatorLayout, "Posizione cancellata", Snackbar.LENGTH_LONG)
+                        .make(coordinatorLayout, getString(R.string.posizione_eliminata), Snackbar.LENGTH_LONG)
                         .setAction(R.string.annulla, new View.OnClickListener() {
                             @Override
                             public void onClick(View view) {
@@ -109,15 +110,10 @@ public class PosizioniActivity extends AppCompatActivity {
                             public void onDismissed(Snackbar snackbar, int event) {
                                 super.onDismissed(snackbar, event);
                                 if (event != DISMISS_EVENT_ACTION) {
-                                    try {
-                                        database.openToWrite();
-                                    } catch (SQLException e) {
-                                        e.printStackTrace();
-                                    }
-                                    database.deletePosizione(posizione);
-                                    database.close();
-                                    isModified = true;
+                                   new DatatbaseInteraction(Utils.DELETE_POSITION).execute(posizione);
+                                    isOrderModified = true;
                                 }
+                                refreshVisualOrder();
                             }
                         });
                 snackbar.show();
@@ -139,14 +135,12 @@ public class PosizioniActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         refreshToolbar();
-        refreshLista();
-        sort();
     }
 
     @Override
-    protected void onStop() {
-        super.onStop();
-        updateOrdine();
+    protected void onPause() {
+        super.onPause();
+        saveOrder();
     }
 
     @Override
@@ -225,16 +219,9 @@ public class PosizioniActivity extends AppCompatActivity {
     }
 
     /**
-     * refresh della toolbar
+     * refresh della toolbar, non aggiorna dal database
      */
     private void refreshToolbar() {
-        try {
-            database.openToRead();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        percorsoAttivo = database.getPercorsoCompleto(percorsoAttivo.getId());
-        database.close();
         getSupportActionBar().setTitle(percorsoAttivo.getNome());
         categoria.setText(percorsoAttivo.getCategoria());
         autista.setText(percorsoAttivo.getAutista());
@@ -242,25 +229,37 @@ public class PosizioniActivity extends AppCompatActivity {
         note.setText(percorsoAttivo.getNote());
     }
 
+
+    /**
+     * refresh della lista
+     */
     private void refreshLista() {
-        adapter.setLista(percorsoAttivo.getPosizioni());
+        adapter.notifyDataSetChanged();
     }
 
-    //AGGIORNA LE POSIZIONI NEL DATABASE
-    public void updateOrdine() {
-        if (!isModified)
+    /**
+     * riordina le posizioni dell'adapter in base ai cambiamenti.
+     * chiamare se è necessario aggiornare la lista
+     * NON modifica il database
+     */
+    private void refreshVisualOrder() {
+        if (!isOrderModified)
             return;
         adapter.setNumberPosizioni();
-        List<Posizione> posiziones = adapter.getLista();
-        try {
-            database.openToWrite();
-        } catch (SQLException e) {
-            e.printStackTrace();
+        adapter.notifyDataSetChanged();
+    }
+
+    /**
+     * salva il nuovo ordine sul database
+     */
+    private void saveOrder() {
+        if (!isOrderModified)
+            return;
+        Posizione[] daModificare = new Posizione[percorsoAttivo.getPosizioni().size()];
+        for (int i = 0; i < percorsoAttivo.getPosizioni().size(); i++) {// TODO: 10/11/2016 possibile errore ciclo
+            daModificare[i] = percorsoAttivo.getPosizioni().get(i);
         }
-        for (Posizione pos : posiziones) {
-            database.updateNumeroPosizione(pos);
-        }
-        database.close();
+        new DatatbaseInteraction(Utils.UPDATE_POSITION_ORDER).execute(daModificare);
     }
 
     //PERMESSI ESPORTAZIONE
@@ -289,6 +288,60 @@ public class PosizioniActivity extends AppCompatActivity {
                     Toast.makeText(this, getString(R.string.permesso_memoria_negato), Toast.LENGTH_LONG).show();
                 }
             }
+        }
+    }
+
+    //CLASSE PER GESTIRE IN BACKGROUND L'INTERAZIONE CON IL DATABASE
+    private class DatatbaseInteraction extends AsyncTask<Posizione, Void, Boolean> {
+        private int operation;
+
+        /**
+         * crea l'istanza per l'interazione con il database
+         *
+         * @param operation costante che indica l'operazione da esegure (vedi classe Utils)
+         */
+        public DatatbaseInteraction(int operation) {
+            super();
+            this.operation = operation;
+        }
+
+        @Override
+        protected Boolean doInBackground(Posizione[] posizioni) {
+            boolean result = false;
+            try {
+                database.openToWrite();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+            switch (operation) {
+                case Utils.DELETE_POSITION: {
+                    result = (-1 != database.deletePosizione(posizioni[0]));
+                    break;
+                }
+                case Utils.UPDATE_POSITION: {
+                    result = database.updatePosizione(posizioni[0]);
+                    break;
+                }
+                case Utils.UPDATE_POSITION_ORDER: {
+                    for (Posizione aPosizioni : posizioni)
+                        database.updateNumeroPosizione(aPosizioni);
+                    result = true;
+                    break;
+                }
+                case Utils.UPDATE_ALL_POSITIONS: {
+                    for (Posizione aPosizioni : posizioni)
+                        database.updatePosizione(aPosizioni);
+                    result = true;
+                    break;
+                }
+                case Utils.GET_PERCORSO_COMPLETO: {
+                    percorsoAttivo = database.getPercorsoCompleto(percorsoAttivo.getId());
+                    result = true;
+                    break;
+                }
+            }
+            database.close();
+            return result;
         }
     }
 }
