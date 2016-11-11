@@ -5,11 +5,13 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.design.widget.CollapsingToolbarLayout;
 import android.support.design.widget.CoordinatorLayout;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -45,9 +47,6 @@ public class PosizioniActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        /*if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
-            getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
-        }*/ // TODO: 10/11/2016 serve ???????????????
         setContentView(R.layout.activity_posizioni);
 
         percorsoAttivo = getIntent().getExtras().getParcelable(MainActivity.KEY_PERCORSO);
@@ -58,7 +57,7 @@ public class PosizioniActivity extends AppCompatActivity {
         note = (TextView) findViewById(R.id.note);
 
         //TOOLBAR
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        final Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
         //informazioni secondarie
@@ -110,7 +109,7 @@ public class PosizioniActivity extends AppCompatActivity {
                             public void onDismissed(Snackbar snackbar, int event) {
                                 super.onDismissed(snackbar, event);
                                 if (event != DISMISS_EVENT_ACTION) {
-                                   new DatatbaseInteraction(Utils.DELETE_POSITION).execute(posizione);
+                                    new DatatbaseInteraction(Utils.DELETE_POSITION).execute(posizione);
                                     isOrderModified = true;
                                 }
                                 refreshVisualOrder();
@@ -141,6 +140,13 @@ public class PosizioniActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         saveOrder();
+        if (isOrderModified) {
+            Intent intent = new Intent(Utils.CHANGED_POSITION_ORDER);
+            Bundle extra = new Bundle();
+            extra.putParcelable(Utils.KEY_PERCORSO_MODIFICATO, percorsoAttivo);
+            intent.putExtras(extra);
+            LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+        }
     }
 
     @Override
@@ -158,19 +164,20 @@ public class PosizioniActivity extends AppCompatActivity {
         int id = item.getItemId();
         switch (id) {
             case R.id.action_elimina: {
-                // TODO: 28/10/2016 aggiungere richiesta conferma
-                if (deletePercorso(percorsoAttivo)) {
+                // TODO: 28/10/2016 implementare
+                /*if (deletePercorso(percorsoAttivo)) {
                     finish();
-                }
+                }*/
+                Toast.makeText(getApplicationContext(), getString(R.string.work_in_progress),
+                        Toast.LENGTH_SHORT).show();
                 break;
-                // TODO: 28/10/2016 possibile errore in riapertura main
             }
             case R.id.action_modifica: {
                 Intent intent = new Intent(this, ModificaPercorsoActivity.class);
                 Bundle extra = new Bundle();
-                extra.putParcelable(ModificaPercorsoActivity.KEY_PERCORSO_MODIFICARE, percorsoAttivo);
+                extra.putParcelable(Utils.KEY_PERCORSO_MODIFICARE, percorsoAttivo);
                 intent.putExtras(extra);
-                startActivity(intent);
+                startActivityForResult(intent, Utils.MODIFY_PERCORSO);
                 break;
             }
             case R.id.action_settings: {// TODO: 03/11/2016 impostazioni
@@ -180,6 +187,22 @@ public class PosizioniActivity extends AppCompatActivity {
             }
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == Utils.MODIFY_PERCORSO) {
+            if (resultCode == RESULT_OK) {
+                percorsoAttivo = data.getExtras().getParcelable(Utils.KEY_PERCORSO_MODIFICATO);
+                refreshToolbar();
+                new DatatbaseInteraction(Utils.UPDATE_PERCORSO_INFO).execute();
+                Intent intent = new Intent(Utils.PERCORSO_MODIFIED);
+                Bundle extra = new Bundle();
+                extra.putParcelable(Utils.KEY_PERCORSO_MODIFICATO, percorsoAttivo);
+                intent.putExtras(extra);
+                LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+            }
+        }
     }
 
     /**
@@ -195,46 +218,15 @@ public class PosizioniActivity extends AppCompatActivity {
     }
 
     /**
-     * cancella un percorso dal database
-     *
-     * @param percorso
-     * @return true se eliminato, false altrimenti
-     */
-    private boolean deletePercorso(Percorso percorso) {
-        try {
-            database.openToWrite();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        boolean eliminato = database.deletePercorso(percorso);
-        database.close();
-        String message;
-        if (eliminato)
-            message = getString(R.string.percorso_eliminato);
-        else
-            message = getString(R.string.percorso_non_eliminato);
-        Toast.makeText(getApplicationContext(), message,
-                Toast.LENGTH_SHORT).show();
-        return eliminato;
-    }
-
-    /**
      * refresh della toolbar, non aggiorna dal database
      */
     private void refreshToolbar() {
-        getSupportActionBar().setTitle(percorsoAttivo.getNome());
+        CollapsingToolbarLayout ctl = (CollapsingToolbarLayout) findViewById(R.id.toolbar_layout);
+        ctl.setTitle(percorsoAttivo.getNome());
         categoria.setText(percorsoAttivo.getCategoria());
         autista.setText(percorsoAttivo.getAutista());
         mezzo.setText(percorsoAttivo.getMezzo());
         note.setText(percorsoAttivo.getNote());
-    }
-
-
-    /**
-     * refresh della lista
-     */
-    private void refreshLista() {
-        adapter.notifyDataSetChanged();
     }
 
     /**
@@ -337,6 +329,11 @@ public class PosizioniActivity extends AppCompatActivity {
                 case Utils.GET_PERCORSO_COMPLETO: {
                     percorsoAttivo = database.getPercorsoCompleto(percorsoAttivo.getId());
                     result = true;
+                    break;
+                }
+                case Utils.UPDATE_PERCORSO_INFO:{
+                    database.updatePercorso(percorsoAttivo);
+                    result =true;
                     break;
                 }
             }

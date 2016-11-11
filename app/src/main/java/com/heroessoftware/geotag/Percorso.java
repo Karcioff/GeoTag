@@ -186,18 +186,12 @@ public class Percorso implements Parcelable {
     }
 
     /**
-     * cancella una posizione dal percorso, sia dal database che dall'oggetto
+     * cancella una posizione dal percorso
      *
-     * @param unaPosizione
-     * @param database
-     * @return true se rimossa false altrimenti
+     * @param unaPosizione da cancellare
      */
-    public boolean deletePosizione(Posizione unaPosizione, GestoreDatabase database) {
-        if (database.deletePosizione(unaPosizione) != -1) {
+    public void deletePosizione(Posizione unaPosizione) {
             posizioni.remove(unaPosizione);
-            return true;
-        }
-        return false;
     }
 
     /**

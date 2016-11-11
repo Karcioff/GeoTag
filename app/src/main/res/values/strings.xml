@@ -51,6 +51,7 @@
     <string name="error_insert_nome">Inserire nome percorso</string>
     <string name="error_insert_etichetta">Inserire etichetta posizione</string>
     <string name="memoria_non_disponibile">Memoria al momento non disponibile</string>
+    <string name="warning_no_connection">Non è possibile stabilire una connessione al momento, verifica le impostazioni e riprova.</string>
 
     <!-- INPUT -->
     <string name="percorso_nome">Nome percorso</string>

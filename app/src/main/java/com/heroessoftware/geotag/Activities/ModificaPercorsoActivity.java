@@ -1,5 +1,7 @@
 package com.heroessoftware.geotag.Activities;
 
+import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.design.widget.TextInputLayout;
 import android.support.v7.app.AppCompatActivity;
@@ -7,24 +9,14 @@ import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.EditText;
-import android.widget.Toast;
 
-import com.heroessoftware.geotag.Gestori.GestoreDatabase;
+import com.heroessoftware.geotag.Gestori.Utils;
 import com.heroessoftware.geotag.Percorso;
 import com.heroessoftware.geotag.R;
 
-import java.sql.SQLException;
-
 public class ModificaPercorsoActivity extends AppCompatActivity {
-    public static final String KEY_PERCORSO_MODIFICARE = "PercorsoDaModificare";
     private EditText nomeText, categoriaText, autistaText, mezzoText, noteText;
     private Percorso percorso;
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-
-    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,9 +32,9 @@ public class ModificaPercorsoActivity extends AppCompatActivity {
         mezzoText = (EditText) findViewById(R.id.input_mezzo);
         noteText = (EditText) findViewById(R.id.input_note);
 
-        percorso = getIntent().getExtras().getParcelable(KEY_PERCORSO_MODIFICARE);
+        percorso = getIntent().getExtras().getParcelable(Utils.KEY_PERCORSO_MODIFICARE);
         //RECEIVE PERCORSO AND SET TEXT
-        if (percorso.getId()!=0) {
+        if (percorso.getId() != 0) {
             getSupportActionBar().setTitle(getString(R.string.modifica_percorso));
             nomeText.setText(percorso.getNome());
             categoriaText.setText(percorso.getCategoria());
@@ -71,8 +63,15 @@ public class ModificaPercorsoActivity extends AppCompatActivity {
         if (id == R.id.action_save) {
             if (!verifyInputs())
                 return true;
-            if (addPercorso())
+            else {
+                updatePercorso();
+                Intent result = new Intent();
+                Bundle extra = new Bundle();
+                extra.putParcelable(Utils.KEY_PERCORSO_MODIFICATO, percorso);
+                result.putExtras(extra);
+                setResult(Activity.RESULT_OK, result);
                 finish();
+            }
             return true;
         }
 
@@ -80,53 +79,14 @@ public class ModificaPercorsoActivity extends AppCompatActivity {
     }
 
     /**
-     * aggiunge un percorso al database
-     *
-     * @return true se aggiunto, false altrimenti
-     */
-    private boolean addPercorso() {
-        GestoreDatabase database = new GestoreDatabase(this);
-        updatePercorso();
-        try {
-            database.openToWrite();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        if (percorso.getId()== 0) {
-            if (database.addPercorso(percorso) == -1) {
-                Toast.makeText(getApplicationContext(), getString(R.string.percorso_non_aggiunto),
-                        Toast.LENGTH_SHORT).show();
-                database.close();
-                return false;
-            }
-            Toast.makeText(getApplicationContext(), getString(R.string.percorso_aggiunto),
-                    Toast.LENGTH_SHORT).show();
-            database.close();
-            return true;
-        } else {
-            if (database.updatePercorso(percorso) == 0) {
-                Toast.makeText(getApplicationContext(), getString(R.string.percorso_non_modificato),
-                        Toast.LENGTH_SHORT).show();
-                database.close();
-                return false;
-            }
-            Toast.makeText(getApplicationContext(), getString(R.string.percorso_modificato),
-                    Toast.LENGTH_SHORT).show();
-            database.close();
-            return true;
-        }
-    }
-
-    /**
      * aggiorna il percorso dagli input dell'utente
-     *
      */
     private void updatePercorso() {// TODO: 26/10/2016 aggiungere altri dati oggetto
         String nome = nomeText.getText().toString();
-        String categoria= categoriaText.getText().toString();
-        String autista =autistaText.getText().toString();
-        String mezzo=mezzoText.getText().toString();
-        String note= noteText.getText().toString();
+        String categoria = categoriaText.getText().toString();
+        String autista = autistaText.getText().toString();
+        String mezzo = mezzoText.getText().toString();
+        String note = noteText.getText().toString();
         percorso.setNome(nome);
         percorso.setCategoria(categoria);
         percorso.setMezzo(mezzo);
@@ -142,7 +102,7 @@ public class ModificaPercorsoActivity extends AppCompatActivity {
      */
     private boolean verifyInputs() {
         if (nomeText.getText().toString().equals("")) {
-            TextInputLayout nomeInput=(TextInputLayout) findViewById(R.id.input_layout_nome);
+            TextInputLayout nomeInput = (TextInputLayout) findViewById(R.id.input_layout_nome);
             nomeInput.setError(getString(R.string.error_insert_nome));
             return false;
         }

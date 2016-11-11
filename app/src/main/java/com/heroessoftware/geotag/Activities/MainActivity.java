@@ -1,20 +1,22 @@
 package com.heroessoftware.geotag.Activities;
 
 import android.Manifest;
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.graphics.drawable.ColorDrawable;
 import android.location.Location;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.NavigationView;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
@@ -25,7 +27,6 @@ import android.support.v7.widget.Toolbar;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewAnimationUtils;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -40,6 +41,7 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.heroessoftware.geotag.Gestori.GestoreDatabase;
+import com.heroessoftware.geotag.Gestori.Utils;
 import com.heroessoftware.geotag.Percorso;
 import com.heroessoftware.geotag.Posizione;
 import com.heroessoftware.geotag.R;
@@ -62,15 +64,27 @@ public class MainActivity extends AppCompatActivity
     private GoogleApiClient mGoogleApiClient;
     private FloatingActionButton fabAdd;
     private FloatingActionButton fabAddFinished;
-    private GestoreDatabase database = new GestoreDatabase(this);
     private Percorso percorsoAttivo;
     private ArrayList<Percorso> percorsi;
     private Location mLastLocation;
     private boolean positionUpdate;
+    private GestoreDatabase database = new GestoreDatabase(this);
 
     public static String KEY_PERCORSO = "percorsoAttivo";
-    public static int STANDARD_ZOOM = 11;
 
+    // Our handler for received Intents. This will be called whenever an Intent
+    // with an action named "custom-event-name" is broadcasted.
+    private BroadcastReceiver mMessageReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (action.equalsIgnoreCase(Utils.PERCORSO_MODIFIED)) {
+                percorsoAttivo = intent.getExtras().getParcelable(Utils.KEY_PERCORSO_MODIFICATO);
+            } else if (action.equalsIgnoreCase(Utils.CHANGED_POSITION_ORDER)) {
+                percorsoAttivo = intent.getExtras().getParcelable(Utils.KEY_PERCORSO_MODIFICATO);
+            }
+        }
+    };
 
     @Override
     protected void onStart() {
@@ -84,6 +98,10 @@ public class MainActivity extends AppCompatActivity
         LocationServices.FusedLocationApi.removeLocationUpdates(
                 mGoogleApiClient, this);
         positionUpdate = false;
+        // Unregister since the activity is paused.
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(
+                mMessageReceiver);
+        super.onPause();
     }
 
     @Override
@@ -100,7 +118,13 @@ public class MainActivity extends AppCompatActivity
                     mGoogleApiClient, this);
             positionUpdate = true;
         }
-        refresh();
+        refreshInterface();
+        // Register to receive messages.
+        // We are registering an observer (mMessageReceiver) to receive Intents
+        // with actions named "custom-event-name".
+        LocalBroadcastManager.getInstance(this).registerReceiver(mMessageReceiver, new IntentFilter(Utils.CHANGED_POSITION_ORDER));
+        LocalBroadcastManager.getInstance(this).registerReceiver(mMessageReceiver, new IntentFilter(Utils.DELETE_POSITION_INTENT));
+
 
     }
 
@@ -113,6 +137,7 @@ public class MainActivity extends AppCompatActivity
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         getSupportActionBar().setTitle(R.string.app_name);
+        refreshComplete();
 
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
@@ -160,10 +185,8 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public void onConnectionFailed(ConnectionResult result) {
-        // An unresolvable error has occurred and a connection to Google APIs
-        // could not be established. Display an error message, or handle
-        // the failure silently
-        // TODO: 01/11/2016 errore
+        Toast.makeText(getApplicationContext(), getString(R.string.warning_no_connection),
+                Toast.LENGTH_LONG).show();
     }
 
     @Override
@@ -243,7 +266,7 @@ public class MainActivity extends AppCompatActivity
                         Intent intent = new Intent(getBaseContext(), ModificaPosizioneActivity.class);
                         Bundle extra = new Bundle();
                         extra.putParcelable(ModificaPosizioneActivity.KEY_POSOZIONE_MODIFICARE, newPos);
-                        extra.putInt(ModificaPosizioneActivity.KEY_NUMERO_POSIZIONI_PERCORSO,percorsoAttivo.getPosizioni().size());
+                        extra.putInt(ModificaPosizioneActivity.KEY_NUMERO_POSIZIONI_PERCORSO, percorsoAttivo.getPosizioni().size());
                         intent.putExtras(extra);
                         startActivity(intent);
                         return true;
@@ -257,7 +280,7 @@ public class MainActivity extends AppCompatActivity
                 Intent intent = new Intent(getBaseContext(), ModificaPosizioneActivity.class);
                 Bundle extra = new Bundle();
                 extra.putParcelable(ModificaPosizioneActivity.KEY_POSOZIONE_MODIFICARE, newPos);
-                extra.putInt(ModificaPosizioneActivity.KEY_NUMERO_POSIZIONI_PERCORSO,percorsoAttivo.getPosizioni().size());
+                extra.putInt(ModificaPosizioneActivity.KEY_NUMERO_POSIZIONI_PERCORSO, percorsoAttivo.getPosizioni().size());
                 intent.putExtras(extra);
                 startActivity(intent);
                 return true;
@@ -308,32 +331,15 @@ public class MainActivity extends AppCompatActivity
                 public void onClick(DialogInterface dialog, int which) {
                     Percorso attivo = percorsi.get(which);
                     setPercorsoAttivo(attivo);
-                    String lista;
-                    lista = attivo.getNome();
-                    Toast.makeText(getApplicationContext(), lista,
-                            Toast.LENGTH_SHORT).show();
                 }
             });
-
             final AlertDialog dialog = builder.create();
-            /*dialog.setOnShowListener(new DialogInterface.OnShowListener() {
-                @Override
-                public void onShow(DialogInterface dialog) {
-                    revealShow(dialogView, true, null);
-                }
-            });
-            dialogView.findViewById(R.id.btn_annulla).setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    revealShow(dialogView, false, dialog);
-                }
-            });
-            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(android.graphics.Color.TRANSPARENT));*/
             dialog.show();
+
         } else if (id == R.id.new_percorso) {
-            Bundle extra= new Bundle();
-            Percorso newperc= new Percorso("","","","","");
-            extra.putParcelable(ModificaPercorsoActivity.KEY_PERCORSO_MODIFICARE,newperc);
+            Bundle extra = new Bundle();
+            Percorso newperc = new Percorso("", "", "", "", "");
+            extra.putParcelable(Utils.KEY_PERCORSO_MODIFICARE, newperc);
             Intent intent = new Intent(this, ModificaPercorsoActivity.class);
             intent.putExtras(extra);
             startActivity(intent);
@@ -399,7 +405,6 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public boolean onMyLocationButtonClick() {
-        Toast.makeText(this, "MyLocation button clicked", Toast.LENGTH_SHORT).show();
         return false;
     }
 
@@ -408,113 +413,51 @@ public class MainActivity extends AppCompatActivity
         mLastLocation = location;
     }
 
-
-    //REVEAL DIALOGUE
-
-    private AlertDialog makeDialogue() {
-        final View dialogView = View.inflate(this, R.layout.dialog_posizione_info, null);
-
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setView(dialogView);
-
-        final AlertDialog dialog = builder.create();
-        dialog.setOnShowListener(new DialogInterface.OnShowListener() {
-            @Override
-            public void onShow(DialogInterface dialog) {
-                revealShow(dialogView, true, null);
-            }
-        });
-        dialogView.findViewById(R.id.btn_annulla).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                revealShow(dialogView, false, dialog);
-            }
-        });
-        dialog.getWindow().setBackgroundDrawable(new ColorDrawable(android.graphics.Color.TRANSPARENT));
-        dialog.show();
-        return dialog;
-    }
-
-    private void revealShow(View rootView, boolean reveal, final AlertDialog dialog) {
-        final View view = rootView.findViewById(R.id.reveal_view);
-        int w = view.getWidth();
-        int h = view.getHeight();
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
-            float maxRadius = (float) Math.sqrt(w * w / 4 + h * h / 4);
-
-            if (reveal) {
-                Animator revealAnimator = null;
-                revealAnimator = ViewAnimationUtils.createCircularReveal(view,
-                        w / 2, h / 2, 0, maxRadius);
-                view.setVisibility(View.VISIBLE);
-                revealAnimator.start();
-            } else {
-                Animator anim = ViewAnimationUtils.createCircularReveal(view, w / 2, h / 2, maxRadius, 0);
-
-                anim.addListener(new AnimatorListenerAdapter() {
-                    @Override
-                    public void onAnimationEnd(Animator animation) {
-                        super.onAnimationEnd(animation);
-                        view.setVisibility(View.INVISIBLE);
-                        dialog.dismiss();
-                    }
-                });
-
-                anim.start();
-            }
-        }
-        // TODO: 21/10/2016 add animation pre lollipop
-    }
-
     /**
-     * aggiunge una posizione al percorso attivo
+     * aggiunge una posizione al percorso attivo e al database
      *
      * @param posizione
      * @return true se aggiunta, false altrimenti
      */
     private boolean addPosizione(Posizione posizione) {
-        try {
-            database.openToWrite();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        if (percorsoAttivo.addPosizione(posizione, database)) {
-            Toast.makeText(getApplicationContext(), getString(R.string.posizione_memorizzata),
-                    Toast.LENGTH_SHORT).show();
-            database.close();
-            percorsoAttivo.getPosizioni().add(posizione);
-            mMap.addMarker(new MarkerOptions().position(posizione.getCoordinate()));
-            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(posizione.getCoordinate(), STANDARD_ZOOM));
-            return true;
-        } else
-            Toast.makeText(getApplicationContext(), getString(R.string.posizione_non_memorizzata),
-                    Toast.LENGTH_SHORT).show();
-        database.close();
-        return false;
+        percorsoAttivo.getPosizioni().add(posizione);
+        mMap.addMarker(new MarkerOptions().position(posizione.getCoordinate()));
+        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(posizione.getCoordinate(), Utils.STANDARD_ZOOM));
+        new DatatbaseInteraction(Utils.ADD_POSITION).execute(posizione);// TODO: 11/11/2016 aggiungere messaggio utente
+        return true;
     }
 
     //mostra tutte le posizioni del percorso e zoomma sulla prima
     private void displayPosizioni() {
+        mMap.clear();
         if (!isPercorsoAttivo())
             return;
         for (Posizione pos : percorsoAttivo.getPosizioni()) {
             mMap.addMarker(new MarkerOptions().position(pos.getCoordinate()).title(pos.getEtichetta()).snippet(pos.getIndirizzo())
                     .snippet(pos.getStringCoordinate()));
-            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(percorsoAttivo.getPosizioni().get(0).getCoordinate(), STANDARD_ZOOM));
+            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(percorsoAttivo.getPosizioni().get(0).getCoordinate(), Utils.STANDARD_ZOOM));
         }
     }
 
     /**
-     * refresh dell'interfaccia
+     * refresh dell'interfaccia dal database
      */
-    private void refresh() {
-        //carica dal database e aggiorna l'interfaccia // TODO: 19/10/2016 implementare scelta
-        try {
-            database.openToRead();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        percorsi = database.getListaPercorsi();
+    private void refreshInterface() {
+
+        if (percorsoAttivo == null) {
+            getSupportActionBar().setTitle(getString(R.string.app_name));
+            return;
+        }else{
+            getSupportActionBar().setTitle(percorsoAttivo.getNome());
+        } displayPosizioni();
+    }
+
+    /**
+     * refresh dell'interfaccia dal database
+     */
+    private void refreshComplete() {
+
+        new DatatbaseInteraction(Utils.GET_PERCORSI_DISPLAY).execute();
         if (percorsoAttivo == null) {
             getSupportActionBar().setTitle(getString(R.string.app_name));
             return;
@@ -524,13 +467,13 @@ public class MainActivity extends AppCompatActivity
             if (p.equals(percorsoAttivo))
                 ok = true;
         if (ok) {
-            percorsoAttivo = database.getPercorsoCompleto(percorsoAttivo.getId());
+            new DatatbaseInteraction(Utils.GET_PERCORSO_COMPLETO).execute();
             getSupportActionBar().setTitle(percorsoAttivo.getNome());
         } else {
             percorsoAttivo = null;
             getSupportActionBar().setTitle(getString(R.string.app_name));
         }
-        database.close();
+        displayPosizioni();
     }
 
 
@@ -545,20 +488,78 @@ public class MainActivity extends AppCompatActivity
 
     /**
      * setta un percorso attivo e aziona tutti gli aggiornamenti necessari all'interfaccia
+     * da chiamare prima di caricare il percorso dal database
      *
      * @param percorso attivo
      */
     private void setPercorsoAttivo(Percorso percorso) {
-        try {
-            database.openToRead();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        percorsoAttivo = database.getPercorsoCompleto(percorso.getId());
-        database.close();
+        percorsoAttivo = percorso;
+        new DatatbaseInteraction(Utils.GET_PERCORSO_COMPLETO).execute();
         getSupportActionBar().setTitle(percorsoAttivo.getNome());
-        mMap.clear();
-        displayPosizioni();
     }
 
+    //CLASSE PER GESTIRE IN BACKGROUND L'INTERAZIONE CON IL DATABASE
+    private class DatatbaseInteraction extends AsyncTask<Posizione, Void, Boolean> {
+        private int operation;
+
+        /**
+         * crea l'istanza per l'interazione con il database
+         *
+         * @param operation costante che indica l'operazione da esegure (vedi classe Utils)
+         */
+        public DatatbaseInteraction(int operation) {
+            super();
+            this.operation = operation;
+        }
+
+        @Override
+        protected Boolean doInBackground(Posizione[] posizioni) {
+            boolean result = false;
+            try {
+                database.openToWrite();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+            switch (operation) {
+                case Utils.DELETE_POSITION: {
+                    result = (-1 != database.deletePosizione(posizioni[0]));
+                    break;
+                }
+                case Utils.UPDATE_POSITION: {
+                    result = database.updatePosizione(posizioni[0]);
+                    break;
+                }
+                case Utils.UPDATE_POSITION_ORDER: {
+                    for (Posizione aPosizioni : posizioni)
+                        database.updateNumeroPosizione(aPosizioni);
+                    result = true;
+                    break;
+                }
+                case Utils.GET_PERCORSI_DISPLAY: {
+                    percorsi = database.getListaPercorsi();
+                    result = true;
+                    break;
+                }
+                case Utils.GET_PERCORSO_COMPLETO: {
+                    percorsoAttivo = database.getPercorsoCompleto(percorsoAttivo.getId());
+                    result = true;
+                    break;
+                }
+                case Utils.UPDATE_PERCORSO_INFO: {
+                    database.updatePercorso(percorsoAttivo);
+                    result = true;
+                    break;
+                }
+            }
+            database.close();
+            return result;
+        }
+
+        @Override
+        protected void onPostExecute(Boolean aBoolean) {
+            super.onPostExecute(aBoolean);
+            if(operation==Utils.GET_PERCORSO_COMPLETO)
+                displayPosizioni();
+        }
+    }
 }
